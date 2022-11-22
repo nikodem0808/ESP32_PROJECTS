@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "esp-idf/driver",
+		"source" : "D:/EspressifIDE-IDF/Espressif/frameworks/esp-idf-v4.4.3/components/driver"
+	}
+}
