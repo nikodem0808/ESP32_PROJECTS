@@ -124,10 +124,11 @@ void ReadTask(void* _targs)
             while(--hadBreak)
             {
                 while (buf[pos] != BREAK_CHARACTER)
-                [
-                    pos++;
+                {
+                    pos = (pos + 1) % BUFSIZE;
                     len--;
-                ]
+                }
+                pos = (pos + 1) % BUFSIZE;
             }
             input_interval = pass_interval();
             xSemaphoreGive(mutex);
