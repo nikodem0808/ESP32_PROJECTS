@@ -1,11 +1,3 @@
-/* Hello World Example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
 #include <stdio.h>
 #include <time.h>
 #include "sdkconfig.h"
@@ -22,27 +14,19 @@
 #include "driver/uart_select.h"
 #include "driver/i2c.h"
 #include "driver/timer.h"
-//#include "semphr.h"
-//#define uart_write_bytes(AX,BX,CX) printf(BX)
-//unsigned readPin = 0, writePin = 0;
+#include "esp_timer.h"
 
 #define BUFSIZE 4096
 #define BREAK_CHARACTER '\n'
-#define START_INTERVAL 500
-
-static char buf[BUFSIZE];
-static unsigned pos = 0, len = 0;
-static size_t uart_buf_len = 0;
-//static unsigned hadBreak = 0;
+#define START_INTERVAL 500 // microseconds
+#define UART2_BAUDRATE = 9600;
 
 static char num_buf[13];
-
-static unsigned const UART2_BAUDRATE = 9600;
 
 //static QueueHandle_t uart_queue;
 static TaskHandle_t write_task;
 static QueueHandle_t interval_queue;
-static TimerHandle_t timer;
+static esp_timer_handle_t timer;
 
 void tos(unsigned num)
 {
@@ -53,8 +37,6 @@ void tos(unsigned num)
         num /= 10;
     }
 }
-
-//static SemaphoreHandle_t mutex;
 
 void config_uart2()
 {
@@ -72,72 +54,57 @@ void config_uart2()
 }
 
 bool is_timed_out = false;
-void TimerCallback(TimerHandle_t xTimer)
+void TimerCallback(void* _targs)
 {
     is_timed_out = true;
-    //xTimerStop(timer);
 }
 
 void WriteTask(void* _targs)
 {
-    static unsigned led_interval = pdMS_TO_TICKS(START_INTERVAL);
-    static unsigned input_interval = 0;
+    static unsigned led_interval = START_INTERVAL * 1000;
     static unsigned char msg_count;
+    static bool toggle = false;
     while (true)
     {
         msg_count = uxQueueMessagesWaiting(interval_queue);
         if (msg_count)
         {
-            while (msg_count--) xQueueReceive(interval_queue, &input_interval, 0);
-            led_interval = pdMS_TO_TICKS(input_interval);
-            xTimerStop(timer, portMAX_DELAY);
-            xTimerStart(timer, led_interval);
-            tos(input_interval);
+            while (msg_count--) xQueueReceive(interval_queue, &led_interval, 0);
+            tos(led_interval);
+            led_interval *= 1000; // millis to micros
+            esp_timer_stop(timer);
+            esp_timer_start_periodic(timer, led_interval);
             uart_write_bytes(UART_NUM_2, "Interval Changed Succesfully To: ", 33);
             uart_write_bytes(UART_NUM_2, num_buf, 13);
         }
         if (is_timed_out)
         {
-            gpio_set_level(GPIO_NUM_4, gpio_get_level(GPIO_NUM_4) == 0);
+            gpio_set_level(GPIO_NUM_4, (toggle) ? 1 : 0);
+            toggle = !toggle;
             is_timed_out = false;
-            xTimerStart(timer, led_interval);
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
-unsigned pass_interval(void)
-{
-  unsigned r = 0;
-  while (len--)
-  {
-    if (buf[pos] == BREAK_CHARACTER)
-    {
-        buf[pos] = '0';
-        break;
-    }
-    r = r * 10 + (unsigned)(buf[pos] - '0');
-    pos = (pos + 1) % BUFSIZE;
-  }
-  return r;
-}
 
 void ReadTask(void* _targs)
 {
-    static unsigned sent_interval;
+    static char buf;
+    static size_t uart_buf_len = 0;
+    static unsigned sent_interval = 0;
     while (true)
     {
         uart_get_buffered_data_len(UART_NUM_2, &uart_buf_len);
-        uart_buf_len = ((uart_buf_len + len > BUFSIZE) ? (BUFSIZE - len) : uart_buf_len);
         while (uart_buf_len--)
         {
-            uart_read_bytes(UART_NUM_2, buf + ((pos + len) % BUFSIZE), 1, 1);
-            len++;
-            if (buf[((pos + len - 1) % BUFSIZE)] == BREAK_CHARACTER || len == BUFSIZE)
+            uart_read_bytes(UART_NUM_2, &buf, 1, 1);
+            if (buf == BREAK_CHARACTER)
             {
-                sent_interval = pass_interval();
                 xQueueSendToBack(interval_queue, &sent_interval, 1);
+                sent_interval = 0;
             }
+            else sent_interval = 10 * sent_interval + (buf - '0');
         }
         vTaskDelay(pdMS_TO_TICKS(5));
     }
@@ -146,14 +113,25 @@ void ReadTask(void* _targs)
 ///*
 void app_main(void)
 {
+    // pre-setup
+    esp_timer_early_init();
+    esp_timer_init();
+    esp_timer_create_args_t timer_config = {
+        .callback=&TimerCallback,
+        .arg=0,
+        .dispatch_method=ESP_TIMER_TASK,
+        .name="Timer1",
+        .skip_unhandled_events=0
+    };
     // setup
     config_uart2();
     interval_queue = xQueueCreate(64, sizeof(unsigned));
-    timer = xTimerCreate("Timer", pdMS_TO_TICKS(START_INTERVAL), pdFALSE, 0, TimerCallback);
+    esp_timer_create(&timer_config, &timer);
     gpio_set_direction(GPIO_NUM_4, GPIO_MODE_OUTPUT);
     // task config
     xTaskCreatePinnedToCore(ReadTask , "ReadTask" , 2048, 0, 1, 0          , 0);
-    xTaskCreatePinnedToCore(WriteTask, "WriteTask", 2048, 0, 1, &write_task, 1);
+    xTaskCreatePinnedToCore(WriteTask, "WriteTask", 2048, 0, 2, &write_task, 1);
+    esp_timer_start_periodic(timer, START_INTERVAL * 1000);
     // start
 }
 // */
