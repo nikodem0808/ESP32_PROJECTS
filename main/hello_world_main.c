@@ -24,6 +24,7 @@
 //unsigned readPin = 0, writePin = 0;
 
 #define BUFSIZE 4096
+#define BREAK_CHARACTER '\n'
 
 static char buf[BUFSIZE];
 static unsigned pos = 0, len = 0;
@@ -88,29 +89,17 @@ void WriteTask(void* _targs)
         gpio_set_level(GPIO_NUM_4, 1);
         vTaskDelay(led_interval);
         gpio_set_level(GPIO_NUM_4, 0);
-        if (xSemaphoreTake(mutex, 0))
-        {
-            if (input_interval)
-            {
-                led_interval = pdMS_TO_TICKS(input_interval);
-                tos(input_interval);
-                input_interval = 0;
-                uart_write_bytes(UART_NUM_2, "Interval Changed Succesfully To: ", 33);
-                uart_write_bytes(UART_NUM_2, num_buf, 13);
-            }
-            xSemaphoreGive(mutex);
-        }
         vTaskDelay(led_interval);
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
-unsigned to_int(void)
+unsigned pass_interval(void)
 {
   unsigned r = 0;
   while (len--)
   {
-    if (buf[pos] == '\n')
+    if (buf[pos] == BREAK_CHARACTER)
     {
         buf[pos] = '0';
         break;
@@ -122,16 +111,9 @@ unsigned to_int(void)
   xTaskCreate(WriteTask, "WriteTask", 2048, 0, 1, &write_task);
   return r;
 }
-///*
-void app_main(void)
+
+void ReadTask(void* _targs)
 {
-    // setup
-    config_uart2();
-    mutex = xSemaphoreCreateMutex();
-    gpio_set_direction(GPIO_NUM_4, GPIO_MODE_OUTPUT);
-    // task config
-    xTaskCreate(WriteTask, "WriteTask", 2048, 0, 1, &write_task);
-    // start
     while (true)
     {
         //uart_write_bytes(UART_NUM_2, "Hello Mum!\n", 11);
@@ -139,8 +121,15 @@ void app_main(void)
         // break */
         if ((hadEnter) && xSemaphoreTake(mutex, 0))
         {
-            input_interval = to_int();
-            hadEnter--;
+            while(--hadEnter)
+            {
+                while ([] != BREAK_CHARACTER)
+                [
+                    pos++;
+                    len--;
+                ]
+            }
+            input_interval = pass_interval();
             xSemaphoreGive(mutex);
         }
         uart_get_buffered_data_len(UART_NUM_2, &uart_buf_len);
@@ -149,11 +138,11 @@ void app_main(void)
         {
             uart_read_bytes(UART_NUM_2, buf + ((pos + len) % BUFSIZE), 1, 1);
             len++;
-            if (buf[((pos + len - 1) % BUFSIZE)] == '\n')
+            if (buf[((pos + len - 1) % BUFSIZE)] == BREAK_CHARACTER)
             {
                 if (xSemaphoreTake(mutex, 0))
                 {
-                    input_interval = to_int();
+                    input_interval = pass_interval();
                     xSemaphoreGive(mutex);
                 }
                 else
@@ -164,11 +153,24 @@ void app_main(void)
             if (len == BUFSIZE)
             {
                 xSemaphoreTake(mutex, portMAX_DELAY);
-                input_interval = to_int();
+                input_interval = pass_interval();
                 xSemaphoreGive(mutex);
             }
         }
         vTaskDelay(pdMS_TO_TICKS(5));
     }
+}
+
+///*
+void app_main(void)
+{
+    // setup
+    config_uart2();
+    mutex = xSemaphoreCreateMutex();
+    gpio_set_direction(GPIO_NUM_4, GPIO_MODE_OUTPUT);
+    // task config
+    xTaskCreatePinnedToCore(ReadTask , "ReadTask" , 2048, 0, 1, 0          , 0);
+    xTaskCreatePinnedToCore(WriteTask, "WriteTask", 2048, 0, 1, &write_task, 1);
+    // start
 }
 // */
