@@ -29,7 +29,7 @@
 static char buf[BUFSIZE];
 static unsigned pos = 0, len = 0;
 static size_t uart_buf_len = 0;
-static unsigned hadEnter = 0;
+static unsigned hadBreak = 0;
 
 static int input_interval = 0;
 
@@ -119,11 +119,11 @@ void ReadTask(void* _targs)
         //uart_write_bytes(UART_NUM_2, "Hello Mum!\n", 11);
         //continue;
         // break */
-        if ((hadEnter) && xSemaphoreTake(mutex, 0))
+        if ((hadBreak) && xSemaphoreTake(mutex, 0))
         {
-            while(--hadEnter)
+            while(--hadBreak)
             {
-                while ([] != BREAK_CHARACTER)
+                while (buf[pos] != BREAK_CHARACTER)
                 [
                     pos++;
                     len--;
@@ -147,7 +147,7 @@ void ReadTask(void* _targs)
                 }
                 else
                 {
-                    hadEnter++;
+                    hadBreak++;
                 }
             }
             if (len == BUFSIZE)
