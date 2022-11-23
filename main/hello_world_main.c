@@ -16,10 +16,9 @@
 #include "driver/timer.h"
 #include "esp_timer.h"
 
-#define BUFSIZE 4096
 #define BREAK_CHARACTER '\n'
-#define START_INTERVAL 500 // microseconds
-#define UART2_BAUDRATE = 9600;
+#define START_INTERVAL 500
+#define UART2_BAUDRATE 9600
 
 static char num_buf[13];
 
