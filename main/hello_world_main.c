@@ -22,8 +22,6 @@
 
 static char num_buf[13];
 
-//static QueueHandle_t uart_queue;
-static TaskHandle_t write_task;
 static QueueHandle_t interval_queue;
 static esp_timer_handle_t timer;
 
@@ -42,7 +40,7 @@ void config_uart2()
     //
     uart_set_pin(UART_NUM_2, GPIO_NUM_1, GPIO_NUM_3, GPIO_NUM_22, GPIO_NUM_23);
     //
-    uart_driver_install(UART_NUM_2, 1024, 1024, 10, 0 /*&uart_queue*/, 0);
+    uart_driver_install(UART_NUM_2, 1024, 1024, 10, 0, 0);
     //
     uart_set_baudrate(UART_NUM_2, UART2_BAUDRATE);
     uart_set_word_length(UART_NUM_2, UART_DATA_8_BITS);
@@ -128,8 +126,8 @@ void app_main(void)
     esp_timer_create(&timer_config, &timer);
     gpio_set_direction(GPIO_NUM_4, GPIO_MODE_OUTPUT);
     // task config
-    xTaskCreatePinnedToCore(ReadTask , "ReadTask" , 2048, 0, 1, 0          , 0);
-    xTaskCreatePinnedToCore(WriteTask, "WriteTask", 2048, 0, 2, &write_task, 1);
+    xTaskCreatePinnedToCore(ReadTask , "ReadTask" , 2048, 0, 1, 0, 0);
+    xTaskCreatePinnedToCore(WriteTask, "WriteTask", 2048, 0, 2, 0, 1);
     esp_timer_start_periodic(timer, START_INTERVAL * 1000);
     // start
 }
