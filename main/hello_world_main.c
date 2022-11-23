@@ -11,6 +11,8 @@
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/timers.h"
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 #include "driver/gpio.h"
@@ -19,6 +21,7 @@
 #include "sdkconfig.h"
 #include "driver/uart_select.h"
 #include "driver/i2c.h"
+#include "driver/timer.h"
 //#include "semphr.h"
 //#define uart_write_bytes(AX,BX,CX) printf(BX)
 //unsigned readPin = 0, writePin = 0;
@@ -30,7 +33,7 @@
 static char buf[BUFSIZE];
 static unsigned pos = 0, len = 0;
 static size_t uart_buf_len = 0;
-static unsigned hadBreak = 0;
+//static unsigned hadBreak = 0;
 
 static char num_buf[13];
 
@@ -82,11 +85,12 @@ void WriteTask(void* _targs)
     static unsigned char msg_count;
     while (true)
     {
-        if (msg_count = uxQueueMessagesWaiting(inverval_queue))
+        msg_count = uxQueueMessagesWaiting(interval_queue);
+        if (msg_count)
         {
             while (msg_count--) xQueueReceive(interval_queue, &input_interval, 0);
             led_interval = pdMS_TO_TICKS(input_interval);
-            xTimerStop(timer);
+            xTimerStop(timer, portMAX_DELAY);
             xTimerStart(timer, led_interval);
             tos(input_interval);
             uart_write_bytes(UART_NUM_2, "Interval Changed Succesfully To: ", 33);
@@ -94,7 +98,7 @@ void WriteTask(void* _targs)
         }
         if (is_timed_out)
         {
-            gpio_set_level(GPIO_NUM_4, gpio_read_level(PIO_NUM_4) == 0);
+            gpio_set_level(GPIO_NUM_4, gpio_get_level(GPIO_NUM_4) == 0);
             is_timed_out = false;
             xTimerStart(timer, led_interval);
         }
@@ -120,6 +124,7 @@ unsigned pass_interval(void)
 
 void ReadTask(void* _targs)
 {
+    static unsigned sent_interval;
     while (true)
     {
         uart_get_buffered_data_len(UART_NUM_2, &uart_buf_len);
@@ -130,7 +135,8 @@ void ReadTask(void* _targs)
             len++;
             if (buf[((pos + len - 1) % BUFSIZE)] == BREAK_CHARACTER || len == BUFSIZE)
             {
-                xQueueSendToBack(inverval_queue, pass_interval(), 1);
+                sent_interval = pass_interval();
+                xQueueSendToBack(interval_queue, &sent_interval, 1);
             }
         }
         vTaskDelay(pdMS_TO_TICKS(5));
