@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
@@ -20,20 +22,9 @@
 #define START_INTERVAL 500
 #define UART2_BAUDRATE 9600
 
-static char num_buf[13];
 
 static QueueHandle_t interval_queue;
 static esp_timer_handle_t timer;
-
-void tos(unsigned num)
-{
-    num_buf[12] = '\n';
-    for (int i = 11; i >= 0; i--)
-    {
-        num_buf[i] = (num % 10) + '0';
-        num /= 10;
-    }
-}
 
 void config_uart2()
 {
@@ -61,18 +52,23 @@ void WriteTask(void* _targs)
     static unsigned led_interval = START_INTERVAL * 1000;
     static unsigned char msg_count;
     static bool toggle = false;
+    static char num_buf[13];
+    static unsigned num_len;
+    num_buf[12] = '\n';
     while (true)
     {
         msg_count = uxQueueMessagesWaiting(interval_queue);
         if (msg_count)
         {
             while (msg_count--) xQueueReceive(interval_queue, &led_interval, 0);
-            tos(led_interval);
+            snprintf(num_buf, 12, "%u", led_interval);
+            num_len = strlen(num_buf);
+            num_buf[num_len] = '\n';
             led_interval *= 1000; // millis to micros
             esp_timer_stop(timer);
             esp_timer_start_periodic(timer, led_interval);
             uart_write_bytes(UART_NUM_2, "Interval Changed Succesfully To: ", 33);
-            uart_write_bytes(UART_NUM_2, num_buf, 13);
+            uart_write_bytes(UART_NUM_2, num_buf, num_len + 1);
         }
         if (is_timed_out)
         {
