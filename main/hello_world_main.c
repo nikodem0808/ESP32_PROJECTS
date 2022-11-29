@@ -18,10 +18,13 @@
 #include "driver/timer.h"
 #include "esp_timer.h"
 
+#include "watchdog.h"
+
 #define BREAK_CHARACTER '\n'
 #define START_INTERVAL 500
 #define UART2_BAUDRATE 9600
 
+watchdog_t wdog;
 
 static QueueHandle_t interval_queue;
 static esp_timer_handle_t timer;
@@ -47,6 +50,11 @@ void TimerCallback(void* _targs)
     is_timed_out = true;
 }
 
+unsigned mini(unsigned a, unsigned b)
+{
+    return (((a) < (b)) ? (a) : (b));
+}
+
 void WriteTask(void* _targs)
 {
     static unsigned led_interval = START_INTERVAL * 1000;
@@ -61,8 +69,7 @@ void WriteTask(void* _targs)
         if (msg_count)
         {
             while (msg_count--) xQueueReceive(interval_queue, &led_interval, 0);
-            snprintf(num_buf, 12, "%u", led_interval);
-            num_len = strlen(num_buf);
+            num_len = mini(snprintf(num_buf, 12, "%u", led_interval), 12);
             num_buf[num_len] = '\n';
             led_interval *= 1000; // millis to micros
             esp_timer_stop(timer);
@@ -117,6 +124,7 @@ void app_main(void)
         .skip_unhandled_events=0
     };
     // setup
+    watchdog_init(&wdog);
     config_uart2();
     interval_queue = xQueueCreate(64, sizeof(unsigned));
     esp_timer_create(&timer_config, &timer);
