@@ -46,7 +46,7 @@ void watchdog_bg_task(void* arg)
             int printlen = snprintf(wdog->log + wdog->log_pos, WATCHDOG_LOG_SIZE - wdog->log_pos, WATCHDOG_MESSAGE_FAILURE, t0, wdog->feeders[i]->name);
             wdog->log_pos += printlen;
         }
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(WATCHDOG_SLEEP_TIME_MS));
     }
 }
 
