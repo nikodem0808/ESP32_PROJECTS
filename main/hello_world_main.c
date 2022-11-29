@@ -57,12 +57,17 @@ unsigned mini(unsigned a, unsigned b)
 
 void t1c(void* _args)
 {
-    uart_write_bytes(UART_NUM_2, "Write Task Callback Called", 26);
+    uart_write_bytes(UART_NUM_2, "Write Task Callback Called\n", 26);
 }
 
 void t2c(void* _args)
 {
-    uart_write_bytes(UART_NUM_2, "Read Task Callback Called", 25);
+    if (_args)
+    {
+        uart_write_bytes(UART_NUM_2, "SHOULD RECEIVE A MESSAGE:\n", 26);
+        uart_write_bytes(UART_NUM_2, _args, strlen(_args));
+    }
+    uart_write_bytes(UART_NUM_2, "Read Task Callback Called\n", 25);
 }
 
 void WriteTask(void* _targs)
@@ -123,8 +128,13 @@ void ReadTask(void* _targs)
             else sent_interval = 10 * sent_interval + (buf - '0');
         }
         watchdog_feed(&wdog, fhandle);
-        vTaskDelay(pdMS_TO_TICKS(5));
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
+}
+
+void sendmsg(char* x)
+{
+    uart_write_bytes(UART_NUM_2, x, strlen(x));
 }
 
 ///*
@@ -141,6 +151,7 @@ void app_main(void)
         .skip_unhandled_events=0
     };
     // setup
+    vTaskDelay(pdMS_TO_TICKS(100));
     watchdog_init(&wdog);
     config_uart2();
     interval_queue = xQueueCreate(64, sizeof(unsigned));

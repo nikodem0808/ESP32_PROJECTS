@@ -7,6 +7,7 @@
 #include "esp_timer.h"
 
 ////
+
 void watchdog_bg_task(void* arg)
 {
     watchdog_handle_t wdog = (watchdog_handle_t)arg;
@@ -15,19 +16,28 @@ void watchdog_bg_task(void* arg)
         for (int i = 0; i < WATCHDOG_MAX_TASKS; i++)
         {
             size_t t0 = esp_timer_get_time();
-            if (wdog->feeders[i]->expected_reset_max_offset < t0)
+            if (wdog->feeders[i])
             {
-                if (wdog->log_pos < WATCHDOG_LOG_SIZE)
+                if (wdog->feeders[i]->expected_reset_max_offset < t0)
                 {
-                    int printlen = snprintf(wdog->log + wdog->log_pos, WATCHDOG_LOG_SIZE - wdog->log_pos, WATCHDOG_MESSAGE_LATENCY, t0, wdog->feeders[i]->name);
+                    if (wdog->log_pos < WATCHDOG_LOG_SIZE)
+                    {
+                        int printlen = snprintf(wdog->log + wdog->log_pos, WATCHDOG_LOG_SIZE - wdog->log_pos, WATCHDOG_MESSAGE_LATENCY, t0, wdog->feeders[i]->name);
+                        wdog->log_pos += printlen;
+                    }
+                    if (wdog->feeders[i]->callback) wdog->feeders[i]->callback(0);
+                    if (wdog->feeders[i]->is_critical)
+                    {
+                        wdog->log[wdog->log_pos + snprintf(wdog->log + wdog->log_pos, WATCHDOG_LOG_SIZE - wdog->log_pos, WATCHDOG_MESSAGE_CRITICAL)] = 0; // dla upewnienia sie bo robilo mi psikusy
+                        esp_restart();
+                    }
+                }
+                else
+                {
+                    int printlen = snprintf(wdog->log + wdog->log_pos, WATCHDOG_LOG_SIZE - wdog->log_pos, WATCHDOG_MESSAGE_FAILURE, t0, wdog->feeders[i]->name);
                     wdog->log_pos += printlen;
                 }
-                if (wdog->feeders[i]->callback) wdog->feeders[i]->callback(0);
-                if (wdog->feeders[i]->is_critical) esp_restart();
-                return;
             }
-            int printlen = snprintf(wdog->log + wdog->log_pos, WATCHDOG_LOG_SIZE - wdog->log_pos, WATCHDOG_MESSAGE_FAILURE, t0, wdog->feeders[i]->name);
-            wdog->log_pos += printlen;
         }
         vTaskDelay(pdMS_TO_TICKS(WATCHDOG_SLEEP_TIME_MS));
     }
@@ -36,7 +46,7 @@ void watchdog_bg_task(void* arg)
 void watchdog_init(watchdog_handle_t _wdog)
 {
     _wdog->running_task_count = 0;
-    _wdog->log[WATCHDOG_LOG_SIZE - 1] = 0;
+    _wdog->log[WATCHDOG_LOG_SIZE] = 0;
     _wdog->log_pos = 0;
     for (int i = WATCHDOG_MAX_TASKS - 1; i >= 0; i--) _wdog->feeders[i] = 0;
     xTaskCreate((void*)watchdog_bg_task, 0, 1024, _wdog, configMAX_PRIORITIES - 1, _wdog->bg_task);
