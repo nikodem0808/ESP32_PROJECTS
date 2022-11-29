@@ -55,6 +55,16 @@ unsigned mini(unsigned a, unsigned b)
     return (((a) < (b)) ? (a) : (b));
 }
 
+void t1c(void* _args)
+{
+    uart_write_bytes(UART_NUM_2, "Write Task Callback Called", 26);
+}
+
+void t2c(void* _args)
+{
+    uart_write_bytes(UART_NUM_2, "Read Task Callback Called", 25);
+}
+
 void WriteTask(void* _targs)
 {
     static unsigned led_interval = START_INTERVAL * 1000;
@@ -62,6 +72,9 @@ void WriteTask(void* _targs)
     static bool toggle = false;
     static char num_buf[13];
     static unsigned num_len;
+    //
+    watchdog_feeder_handle_t fhandle = watchdog_append(&wdog, 2500, t1c, false, "WriteTask");
+    //
     num_buf[12] = '\n';
     while (true)
     {
@@ -83,16 +96,19 @@ void WriteTask(void* _targs)
             toggle = !toggle;
             is_timed_out = false;
         }
+        watchdog_feed(&wdog, fhandle);
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
-
 
 void ReadTask(void* _targs)
 {
     static char buf;
     static size_t uart_buf_len = 0;
     static unsigned sent_interval = 0;
+    //
+    watchdog_feeder_handle_t fhandle = watchdog_append(&wdog, 100, t2c, true, "ReadTask");
+    //
     while (true)
     {
         uart_get_buffered_data_len(UART_NUM_2, &uart_buf_len);
@@ -106,6 +122,7 @@ void ReadTask(void* _targs)
             }
             else sent_interval = 10 * sent_interval + (buf - '0');
         }
+        watchdog_feed(&wdog, fhandle);
         vTaskDelay(pdMS_TO_TICKS(5));
     }
 }

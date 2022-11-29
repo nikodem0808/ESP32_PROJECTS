@@ -6,23 +6,6 @@
 #include "driver/timer.h"
 #include "esp_timer.h"
 
-struct m_watchdog_feeder
-{
-    watchdog_callback_t callback;
-    size_t delay;
-    bool is_critical;
-    const char* name;
-    size_t expected_reset_max_offset;
-};
-
-struct m_watchdog
-{
-  watchdog_feeder_handle_t feeders[WATCHDOG_MAX_TASKS];
-  size_t running_task_count;
-  char log[WATCHDOG_LOG_SIZE];
-  size_t log_pos;
-  TaskHandle_t bg_task;
-};
 ////
 void watchdog_bg_task(void* arg)
 {
