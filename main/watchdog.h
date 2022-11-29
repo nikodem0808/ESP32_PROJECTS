@@ -38,6 +38,7 @@ void sendmsg(char* x);
 
 
 typedef void(*watchdog_callback_t)(void*);
+
 typedef struct m_watchdog_feeder {
     watchdog_callback_t callback;
     size_t delay;
@@ -45,6 +46,7 @@ typedef struct m_watchdog_feeder {
     const char* name;
     size_t expected_reset_max_offset;
 } watchdog_feeder_t, *watchdog_feeder_handle_t;
+
 typedef struct m_watchdog {
   watchdog_feeder_handle_t feeders[WATCHDOG_MAX_TASKS];
   size_t running_task_count;
