@@ -1,0 +1,19 @@
+{
+    "idf.adapterTargetName": "esp32",
+    "idf.portWin": "COM5",
+    "idf.flashType": "UART",
+    "C_Cpp.default.includePath": [
+        "${default}",
+        "D:\\EspressifIDE-IDF\\Espressif\\frameworks\\esp-idf-v4.4.3\\**",
+        "D:\\EspressifIDE-IDF\\Espressif\\tools\\**"
+    ],
+    "files.associations": {
+        "uart_select.h": "c",
+        "task.h": "c",
+        "freertos.h": "c",
+        "queue.h": "c",
+        "esp_spi_flash.h": "c",
+        "esp_system.h": "c",
+        "timers.h": "c"
+    }
+}
