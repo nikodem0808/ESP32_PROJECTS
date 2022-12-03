@@ -78,7 +78,7 @@ void WriteTask(void* _targs)
     static char num_buf[13];
     static unsigned num_len;
     //
-    watchdog_feeder_handle_t fhandle = watchdog_append(&wdog, 2500, t1c, false, "WriteTask");
+    TaskHandle_t fhandle = watchdog_append(&wdog, 2500, t1c, false, "WriteTask");
     //
     num_buf[12] = '\n';
     while (true)
@@ -112,7 +112,7 @@ void ReadTask(void* _targs)
     static size_t uart_buf_len = 0;
     static unsigned sent_interval = 0;
     //
-    watchdog_feeder_handle_t fhandle = watchdog_append(&wdog, 100, t2c, true, "ReadTask");
+    TaskHandle_t fhandle = watchdog_append(&wdog, 100, t2c, true, "ReadTask");
     //
     while (true)
     {
@@ -132,6 +132,7 @@ void ReadTask(void* _targs)
     }
 }
 
+/* DEBUG */
 void sendmsg(char* x)
 {
     uart_write_bytes(UART_NUM_2, x, strlen(x));
