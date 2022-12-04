@@ -1,3 +1,6 @@
+#ifndef __WATCHDOG_H
+#define __WATCHDOG_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,51 +23,55 @@ void sendmsg(char* x);
 ////
 
 #ifndef WATCHDOG_MAX_TASKS
+#warning "To define the max amount of tasks the watchdog should track, define the WATCHDOG_MAX_TASKS macro"
 #define WATCHDOG_MAX_TASKS 16
 #endif
-
-#define WATCHDOG_SLEEP_TIME_MS 1000
-
-#define WATCHDOG_TASK_STATUS_OK 0
-#define WATCHDOG_TASK_STATUS_TIMED_OUT 1
-#define WATCHDOG_TASK_STATUS_LATE 2
 
 ////
 
 
-typedef void(*watchdog_callback_t)(void*);
 
-/* Deprecated
-typedef struct m_watchdog_feeder {
-    watchdog_callback_t callback;
-    size_t delay;
-    bool is_critical;
-    const char* name;
-    size_t expected_reset_max_offset;
-} watchdog_feeder_t, *TaskHandle_t;
-*/
+typedef void(*watchdog_callback_t)(TaskHandle_t);
+#ifdef WATCHDOG_STATIC
+typedef size_t watchdog_uid_t;
+#endif
 
 typedef struct m_watchdog {
-  /* TaskHandle_t */ TaskHandle_t feeders[WATCHDOG_MAX_TASKS];
-  size_t running_task_count;
-  TaskHandle_t bg_task;
+#ifndef WATCHDOG_STATIC
+  TaskHandle_t feeders[WATCHDOG_MAX_TASKS];
+  size_t feeder_count;
+#endif
+  bool flags[WATCHDOG_MAX_TASKS];
+  size_t delay;
+  TaskHandle_t watchdog_task_handle;
+  watchdog_callback_t user_callback;
 } watchdog_t, *watchdog_handle_t;
 
 
 ////
 
+void watchdog_background_task             (void* arg);
+void watchdog_init                        (size_t delay, size_t watchdog_stack_size, size_t watchdog_task_priority, watchdog_callback_t callback);
+void watchdog_disconnect                  ();
+void watchdog_reconnect                   ();
+int watchdog_check_all                    ();
 
-void watchdog_bg_task                     (void* wdog);
-void watchdog_init                        (watchdog_handle_t wdog, size_t delay, watchdog_callback_t callback, size_t background_task_priority);
-void watchdog_disconnect                  (watchdog_handle_t wdog);
-void watchdog_reconnect                   (watchdog_handle_t wdog);
-size_t watchdog_destroy                   (watchdog_handle_t wdog);
-bool watchdog_append  (watchdog_handle_t wdog, bool is_critical, const char* name);
-bool watchdog_pop                         (watchdog_handle_t wdog, TaskHandle_t feeder);
-int watchdog_feed                         (watchdog_handle_t wdog, TaskHandle_t feeder);
-int watchdog_force_check                  (watchdog_handle_t wdog, TaskHandle_t feeder);
-int watchdog_force_check_all              (watchdog_handle_t wdog);
-int watchdog_force_starve                 (watchdog_handle_t wdog, TaskHandle_t feeder);
-size_t feeder_change_delay                (watchdog_handle_t wdog, TaskHandle_t feeder, size_t delay);
+#ifdef WATCHDOG_STATIC
 
+bool watchdog_append                      (watchdog_uid_t feeder_uid, TaskHandle_t feeder);
+bool watchdog_pop                         (watchdog_uid_t feeder_uid);
+int watchdog_feed                         (watchdog_uid_t feeder_uid);
+int watchdog_check                        (watchdog_uid_t feeder_uid);
+int watchdog_starve                       (watchdog_uid_t feeder_uid);
 
+#else
+
+bool watchdog_append                      (TaskHandle_t feeder);
+bool watchdog_pop                         (TaskHandle_t feeder);
+int watchdog_feed                         (TaskHandle_t feeder);
+int watchdog_check                        (TaskHandle_t feeder);
+int watchdog_starve                       (TaskHandle_t feeder);
+
+#endif
+
+#endif
