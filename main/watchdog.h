@@ -34,13 +34,15 @@ void sendmsg(char* x);
 typedef void(*watchdog_callback_t)(TaskHandle_t);
 #ifdef WATCHDOG_STATIC
 typedef size_t watchdog_uid_t;
+#else
+
 #endif
 
 typedef struct m_watchdog {
 #ifndef WATCHDOG_STATIC
-  TaskHandle_t feeders[WATCHDOG_MAX_TASKS];
   size_t feeder_count;
 #endif
+  TaskHandle_t feeders[WATCHDOG_MAX_TASKS];
   bool flags[WATCHDOG_MAX_TASKS];
   size_t delay;
   TaskHandle_t watchdog_task_handle;
