@@ -3,14 +3,24 @@
 
 ////
 
-static watchdog_t g_watchdog; // the global watchdog
+
+static struct m_watchdog {
+#ifndef WATCHDOG_STATIC
+  size_t feeder_count;
+#endif
+  TaskHandle_t feeders[WATCHDOG_MAX_TASKS];
+  bool flags[WATCHDOG_MAX_TASKS];
+  size_t delay;
+  TaskHandle_t watchdog_task_handle;
+  watchdog_callback_t user_callback;
+} g_watchdog; // the global watchdog
 
 void watchdog_background_task(void* arg)
 {
     while (true)
     {
         watchdog_check_all();
-        vTaskDelay(pdMS_TO_TICKS(WATCHDOG_SLEEP_TIME_MS));
+        vTaskDelay(pdMS_TO_TICKS(g_watchdog.delay));
     }
 }
 
@@ -59,8 +69,8 @@ void watchdog_reconnect(size_t delay, size_t watchdog_task_stack_size, size_t wa
 
 bool watchdog_append(watchdog_uid_t feeder_uid, TaskHandle_t feeder)
 {
-    g_watchdog.feeders[i] = feeder;
-    g_watchdog.flags[i] = false;
+    g_watchdog.feeders[feeder_uid] = feeder;
+    g_watchdog.flags[feeder_uid] = false;
     return true;
 }
 
@@ -75,13 +85,13 @@ int watchdog_feed(watchdog_uid_t feeder_uid)
     g_watchdog.flags[feeder_uid] = false;
     return 0;
 }
-int watchdog_check(TaskHandle_t feeder)
+int watchdog_check(watchdog_uid_t feeder_uid)
 {
-    if (g_watchdog.flags[i])
+    if (g_watchdog.flags[feeder_uid])
     {
-        watchdog_starve(feeder);
+        watchdog_starve(g_watchdog.feeders[feeder_uid]);
     }
-    g_watchdog.flags[i] = true;
+    g_watchdog.flags[feeder_uid] = true;
     return 0;
 }
 int watchdog_check_all()
