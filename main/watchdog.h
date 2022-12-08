@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
@@ -76,4 +77,5 @@ int watchdog_starve                       (TaskHandle_t feeder);
 
 #endif
 
+// include guard end
 #endif

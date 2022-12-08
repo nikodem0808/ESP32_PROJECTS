@@ -1,14 +1,9 @@
-#include <stdlib.h>
+
 #include "watchdog.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_system.h"
-#include "driver/timer.h"
-#include "esp_timer.h"
 
 ////
 
-watchdog_t g_watchdog; // the global watchdog
+static watchdog_t g_watchdog; // the global watchdog
 
 void watchdog_background_task(void* arg)
 {
@@ -26,8 +21,18 @@ void watchdog_init(size_t delay, size_t watchdog_task_stack_size, size_t watchdo
 #endif
     g_watchdog.user_callback = callback;
     g_watchdog.delay = pdMS_TO_TICKS(delay);
-    for (int i = WATCHDOG_MAX_TASKS - 1; i >= 0; i--) g_watchdog.feeders[i] = 0;
-    xTaskCreate((void*)watchdog_background_task, 0, watchdog_task_stack_size, 0, watchdog_task_priority, g_watchdog.watchdog_task_handle);
+    for (int i = WATCHDOG_MAX_TASKS - 1; i >= 0; i--)
+    {
+        g_watchdog.feeders[i] = 0;
+    }
+    xTaskCreate(
+        (void*)watchdog_background_task,
+        0,
+        watchdog_task_stack_size,
+        0,
+        watchdog_task_priority,
+        g_watchdog.watchdog_task_handle
+    );
 }
 void watchdog_disconnect()
 {
@@ -40,7 +45,14 @@ void watchdog_reconnect(size_t delay, size_t watchdog_task_stack_size, size_t wa
     {
         vTaskDelete(g_watchdog.watchdog_task_handle);
     }
-    xTaskCreate((void*)watchdog_background_task, 0, watchdog_task_stack_size, 0, watchdog_task_priority, g_watchdog.watchdog_task_handle);
+    xTaskCreate(
+        (void*)watchdog_background_task,
+        0,
+        watchdog_task_stack_size,
+        0,
+        watchdog_task_priority,
+        g_watchdog.watchdog_task_handle
+    );
 }
 
 #ifdef WATCHDOG_STATIC
@@ -94,9 +106,15 @@ int watchdog_starve(watchdog_uid_t feeder_uid)
 
 bool watchdog_append(TaskHandle_t feeder)
 {
-    if (g_watchdog.feeder_count == WATCHDOG_MAX_TASKS) return false;
+    if (g_watchdog.feeder_count == WATCHDOG_MAX_TASKS)
+    {
+        return false;
+    }
     int i = 0;
-    while (g_watchdog.feeders[i]) i++;
+    while (g_watchdog.feeders[i])
+    {
+        i++;
+    }
     g_watchdog.feeders[i] = feeder;
     g_watchdog.flags[i] = false;
     g_watchdog.feeder_count++;
@@ -105,8 +123,14 @@ bool watchdog_append(TaskHandle_t feeder)
 bool watchdog_pop(TaskHandle_t feeder)
 {
     int i = 0;
-    while (i < WATCHDOG_MAX_TASKS && (g_watchdog.feeders[i] != feeder)) i++;
-    if (i == WATCHDOG_MAX_TASKS) return false;
+    while (i < WATCHDOG_MAX_TASKS && (g_watchdog.feeders[i] != feeder))
+    {
+        i++;
+    }
+    if (i == WATCHDOG_MAX_TASKS)
+    {
+        return false;
+    }
     g_watchdog.feeders[i] = 0;
     return true;
 }
